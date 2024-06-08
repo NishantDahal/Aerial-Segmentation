@@ -44,7 +44,6 @@ class AerialImageDataset(Dataset):
 
     def label_mask(self, mask):
         mask = np.array(mask)
-        new_mask = np.zeros(mask.shape[:2], dtype=np.int64)
         labeled_mask = np.zeros(mask.shape[:2], dtype=np.int64)
 
         for idx, color in enumerate(self.Hex_Classes):
