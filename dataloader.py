@@ -1,71 +1,57 @@
 import os
-import shutil
-import random
+from torch.utils.data import Dataset
+from PIL import Image
+import torchvision.transforms as transforms
+import numpy as np
 
-dataset_path = "/teamspace/studios/this_studio/AerialSegmentation/Semantic segmentation dataset"
-new_dataset_path = "/teamspace/studios/this_studio/AerialSegmentation"
-train_path = os.path.join(new_dataset_path, "train")
-val_path = os.path.join(new_dataset_path, "val")
+class AerialImageDataset(Dataset):
+    def __init__(self, image_dir, mask_dir, transform=None):
+        self.image_dir = image_dir
+        self.mask_dir = mask_dir
+        self.transform = transform
+        self.images = os.listdir(self.image_dir)
+        self.Hex_Classes = [
+            ('Unlabeled', '#9B9B9B'),
+            ('Building','#3C1098'),
+            ('Land', '#8429F6'),
+            ('Road', '#6EC1E4'),
+            ('Vegetation', '#FEDD3A'),
+            ('Water', '#E2A929'),
+            ]
 
-os.makedirs(train_path, exist_ok=True)
-os.makedirs(val_path, exist_ok=True)
-
-train_image_path = os.path.join(train_path, "images")
-train_mask_path = os.path.join(train_path, "masks")
-
-val_image_path = os.path.join(val_path, "images")
-val_mask_path = os.path.join(val_path, "masks")
-
-os.makedirs(train_image_path, exist_ok=True)
-os.makedirs(val_image_path, exist_ok=True)
-os.makedirs(train_mask_path, exist_ok=True)
-os.makedirs(val_mask_path, exist_ok=True)
-
-
-tile_folders = [folder for folder in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, folder))]
-
-n_train_images = 8
-n_val_images = 1
-
-
-def copy(train_status):
-    if train_status:
-        images = train_images
-        path_image = train_image_path
-        path_mask = train_mask_path
-    else:
-        images = val_images
-        path_image = val_image_path
-        path_mask = val_mask_path
-
-    
-
-    for image in images:
-        tile_image_name = f'{tile_folder}_{image}'
-        shutil.copy(os.path.join(images_path, image), os.path.join(path_image, tile_image_name))
-
-        mask_name = image.split('.')[0]+'.png'
-        tile_mask_name = f'{tile_folder}_{mask_name}'
-        shutil.copy(os.path.join(masks_path, mask_name), os.path.join(path_mask,  tile_mask_name))
+        self.class_rgb_values = [self.hex_to_rgb(color[1]) for color in self.Hex_Classes]
         
 
-for tile_folder in tile_folders:
-    images_path = os.path.join(dataset_path, tile_folder, 'images')
-    masks_path = os.path.join(dataset_path, tile_folder, 'masks')
+    def __len__(self):
+        return len(self.images)
 
-    images = os.listdir(images_path)
-    masks = os.listdir(masks_path)
+    def __getitem__(self, idx):
+        img_name = self.images[idx]
+        img_path = os.path.join(self.image_dir, img_name)
+        
+        mask_name = self.images[idx].replace('.jpg', '.png')
+        mask_path = os.path.join(self.mask_dir, mask_name)
 
-    random.shuffle(images)
-    random.shuffle(masks)
-
-    train_images = images[:n_train_images]
-    val_images = images[n_train_images:]
-
-    copy(train_status=True)
-    copy(train_status=False)
+        image = Image.open(img_path)
+        mask = Image.open(mask_path)
 
 
-shutil.rmtree(dataset_path)
+        if self.transform:
+            image = self.transform(image)
+            mask = self.transform(mask)
 
-print(f"Data organization and split completed successfully. Total Training Files is {len(os.listdir(train_image_path))} and Validation Files is {len(os.listdir(val_image_path))}")
+        return image, mask
+
+    def label_mask(self, mask):
+        mask = np.array(mask)
+        new_mask = np.zeros(mask.shape[:2], dtype=np.int64)
+        labeled_mask = np.zeros(mask.shape[:2], dtype=np.int64)
+
+        for idx, color in enumerate(self.Hex_Classes):
+            labeled_mask[np.all(mask == self.hex_to_rgb(color[1]), axis=-1)] = i
+
+        return labeled_mask
+
+    def hex_to_rgb(self, hex):
+        hex = hex.lstrip('#')
+        return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
