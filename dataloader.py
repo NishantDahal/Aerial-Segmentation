@@ -17,24 +17,22 @@ class AerialImageDataset(Dataset):
             ('Road', '#6EC1E4'),
             ('Vegetation', '#FEDD3A'),
             ('Water', '#E2A929'),
-            ]
-
-        self.class_rgb_values = [self.hex_to_rgb(color[1]) for color in self.Hex_Classes]
-        
+        ]
 
     def __len__(self):
         return len(self.images)
-
+   
     def __getitem__(self, idx):
-        img_name = self.images[idx]
-        img_path = os.path.join(self.image_dir, img_name)
         
-        mask_name = self.images[idx].replace('.jpg', '.png')
-        mask_path = os.path.join(self.mask_dir, mask_name)
+        img_path = os.path.join(self.image_dir, self.images[idx])
+        mask_path = os.path.join(self.mask_dir, self.images[idx].replace('.jpg', '.png'))
 
         image = Image.open(img_path)
         mask = Image.open(mask_path)
 
+        mask = np.array(mask)
+        mask = self.encode_segmap(mask)
+        mask = Image.fromarray(mask)
 
         if self.transform:
             image = self.transform(image)
@@ -42,15 +40,12 @@ class AerialImageDataset(Dataset):
 
         return image, mask
 
-    def label_mask(self, mask):
-        mask = np.array(mask)
-        labeled_mask = np.zeros(mask.shape[:2], dtype=np.int64)  # ignore channel dimension so :2
-
-        for idx, color in enumerate(self.Hex_Classes):
-            labeled_mask[np.all(mask == self.hex_to_rgb(color[1]), axis=-1)] = idx
-
-        return labeled_mask
-
-    def hex_to_rgb(self, hex):
-        hex = hex.lstrip('#')
-        return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
+    def encode_segmap(self, mask):
+        mask = mask.astype(int)
+        label_mask = np.zeros((mask.shape[0], mask.shape[1]), dtype=np.int16)
+        for i, (name, color) in enumerate(self.Hex_Classes):
+            if mask.ndim == 3:
+                label_mask[(mask[:,:,0] == int(color[1:3], 16)) & (mask[:,:,1] == int(color[3:5], 16)) & (mask[:,:,2] == int(color[5:7], 16))] = i
+            elif mask.ndim == 2:
+                label_mask[(mask == int(color[1:3], 16))] = i
+        return label_mask

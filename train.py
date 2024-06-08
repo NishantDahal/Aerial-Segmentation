@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import lightning as L
-from torchmetrics.segmentation import MeanIoU
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -11,7 +10,7 @@ class DoubleConv(nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
@@ -38,7 +37,7 @@ class Up(nn.Module):
         self.up = nn.Upsample(
             scale_factor = 2,
             mode = 'bilinear',
-            align_corner = True
+            align_corners = True
         )
 
         self.conv = DoubleConv(in_channels, out_channels)
@@ -64,6 +63,42 @@ class OutConv(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
+class mIoULoss(nn.Module):
+    def __init__(self, weight=None, size_average=True, n_classes=2):
+        super(mIoULoss, self).__init__()
+        self.classes = n_classes
+
+    def to_one_hot(self, tensor):
+        tensor = tensor.long()  # Ensure tensor is a LongTensor
+        n,c,h,w = tensor.size()
+        one_hot = torch.zeros(n,self.classes,h,w).to(tensor.device).scatter_(1,tensor.view(n,1,h,w),1)
+        return one_hot
+
+    def forward(self, inputs, target):
+        # inputs => N x Classes x H x W
+        # target_oneHot => N x Classes x H x W
+
+        N = inputs.size()[0]
+
+        # predicted probabilities for each pixel along channel
+        inputs = F.softmax(inputs,dim=1)
+        
+        # Numerator Product
+        target_oneHot = self.to_one_hot(target)
+        inter = inputs * target_oneHot
+        ## Sum over all pixels N x C x H x W => N x C
+        inter = inter.view(N,self.classes,-1).sum(2)
+
+        #Denominator 
+        union= inputs + target_oneHot - (inputs*target_oneHot)
+        ## Sum over all pixels N x C x H x W => N x C
+        union = union.view(N,self.classes,-1).sum(2)
+
+        loss = inter/union
+
+        ## Return average loss over classes and batch
+        return 1-loss.mean()
+
 
 class UNet(L.LightningModule):
     def __init__(self, n_channels=3, n_classes=6):
@@ -82,6 +117,8 @@ class UNet(L.LightningModule):
         self.up4 = Up(128, 64)
         self.outc = OutConv(64, n_classes)
 
+        self.criterion = mIoULoss(n_classes=n_classes)
+
     def forward(self, x):
         x1 = self.inc(x)
         x2 = self.down1(x1)
@@ -98,22 +135,18 @@ class UNet(L.LightningModule):
     def training_step(self, batch, batch_idx):
         images, masks = batch
         logits = self(images)
-        miou = MeanIoU(num_classes=6)
-        loss = miou(logits, masks)
-        self.log('train_loss', loss)
+        loss = self.criterion(logits, masks)
+        print('train_loss', loss)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         images, masks = batch
         logits = self(images)
-        miou = MeanIoU(num_classes=6)
-        loss = miou(logits, masks)
-        self.log('val_loss', loss)
+        loss = self.criterion(logits, masks)
+        print('val_loss', loss)
+        return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer =  torch.optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer
 
-
-
-
-
-        

@@ -2,8 +2,8 @@ import os
 import shutil
 import random
 
-dataset_path = "/teamspace/studios/this_studio/AerialSegmentation/Semantic segmentation dataset"
-new_dataset_path = "/teamspace/studios/this_studio/AerialSegmentation"
+dataset_path = "/teamspace/studios/this_studio/Aerial-Segmentation/Semantic segmentation dataset"
+new_dataset_path = "/teamspace/studios/this_studio/Aerial-Segmentation"
 train_path = os.path.join(new_dataset_path, "train")
 val_path = os.path.join(new_dataset_path, "val")
 
