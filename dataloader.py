@@ -32,7 +32,7 @@ class AerialImageDataset(Dataset):
 
         mask = np.array(mask)
         mask = self.encode_segmap(mask)
-        mask = Image.fromarray(mask)
+        mask = Image.fromarray(mask) # Convert mask -> PIL
 
         if self.transform:
             image = self.transform(image)
@@ -42,7 +42,7 @@ class AerialImageDataset(Dataset):
 
     def encode_segmap(self, mask):
         mask = mask.astype(int)
-        label_mask = np.zeros((mask.shape[0], mask.shape[1]), dtype=np.int16)
+        label_mask = np.zeros((mask.shape[0], mask.shape[1]), dtype=np.int16)  # height, width -> 0
         for i, (name, color) in enumerate(self.Hex_Classes):
             if mask.ndim == 3:
                 label_mask[(mask[:,:,0] == int(color[1:3], 16)) & (mask[:,:,1] == int(color[3:5], 16)) & (mask[:,:,2] == int(color[5:7], 16))] = i
