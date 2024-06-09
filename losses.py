@@ -1,3 +1,7 @@
+import torch.nn as nn
+import torch.nn.functional as F
+
+
 class mIoULoss(nn.Module):
     def __init__(self, weight=None, size_average=True, n_classes=2):
         super().__init__()
