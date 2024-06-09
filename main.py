@@ -4,6 +4,7 @@ from dataloader import AerialImageDataset
 from train import UNet
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
+import torch
 
 train_path = "/teamspace/studios/this_studio/Aerial-Segmentation/train"
 val_path = "/teamspace/studios/this_studio/Aerial-Segmentation/val"
