@@ -65,7 +65,7 @@ class OutConv(nn.Module):
 
 class mIoULoss(nn.Module):
     def __init__(self, weight=None, size_average=True, n_classes=2):
-        super(mIoULoss, self).__init__()
+        super().__init__()
         self.classes = n_classes
 
     def to_one_hot(self, tensor):
@@ -136,6 +136,7 @@ class UNet(L.LightningModule):
         images, masks = batch
         logits = self(images)
         loss = self.criterion(logits, masks)
+        self.log('train_loss', loss)
         print('train_loss', loss)
         return loss
 
@@ -143,6 +144,7 @@ class UNet(L.LightningModule):
         images, masks = batch
         logits = self(images)
         loss = self.criterion(logits, masks)
+        self.log('val_loss', loss)
         print('val_loss', loss)
         return loss
 
